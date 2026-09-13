@@ -1,27 +1,57 @@
-from systems.fuel import calculate_fuel
-from systems.tires import check_tires
-telemetry = {
-    "fuel": 25,
-    "fuel_per_lap": 2.4,
-    "laps_remaining": 8,
+import time
+from config import POLL_INTERVAL, SIMULATOR
+from triggers import TriggerEngine
+from engineer import get_engineer_response
+from voice import Voice
 
-    "tires": {
-        "FL": 102,
-        "FR": 95,
-        "RL": 88,
-        "RR": 90
-    }
-}
-print("=== Race Engineer ===")
-print(
-    calculate_fuel(
-        telemetry["fuel"],
-        telemetry["fuel_per_lap"],
-        telemetry["laps_remaining"]
-    )
-)
-warnings = check_tires(
-    telemetry["tires"]
-)
-for warning in warnings:
-    print("⚠", warning)
+
+def create_telemetry():
+    if SIMULATOR.upper() == "ACC":
+        from telemetry_acc import ACCTelemetry
+
+        return ACCTelemetry()
+
+    if SIMULATOR.upper() == "LMU":
+        try:
+            from telemetry_lmu import LMUTelemetry
+        except ModuleNotFoundError as error:
+            raise RuntimeError(
+                "LMU vereist pyLMUSharedMemory. Clone de library in de "
+                "projectmap met: git clone "
+                "https://github.com/TinyPedal/pyLMUSharedMemory.git"
+            ) from error
+
+        return LMUTelemetry()
+
+    raise ValueError(f"Onbekende simulator: {SIMULATOR!r}. Gebruik ACC of LMU.")
+
+
+def main():
+    telemetry = create_telemetry()
+    trigger_engine = TriggerEngine()
+    voice = Voice()
+
+    print(f"Race engineer gestart voor {SIMULATOR}. Wachten op telemetrie...")
+
+    try:
+        while True:
+            data = telemetry.read()
+            if data is None:
+                time.sleep(POLL_INTERVAL)
+                continue
+
+            events = trigger_engine.check(data)
+            for _, situation in events:
+                response = get_engineer_response(situation)
+                if response:
+                    voice.say(response)
+
+            time.sleep(POLL_INTERVAL)
+
+    except KeyboardInterrupt:
+        print("Gestopt door gebruiker.")
+    finally:
+        telemetry.close()
+
+if __name__ == "__main__":
+    main()
