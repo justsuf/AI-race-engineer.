@@ -5,9 +5,7 @@ Test & read data from LMU's built-in Shared Memory Interface
 from __future__ import annotations
 
 import ctypes
-import sys
 
-sys.path.append(".")
 from pyLMUSharedMemory import lmu_data, lmu_enum
 
 
@@ -157,7 +155,7 @@ def vehicle_model_info(data: list[lmu_data.LMUVehicleTelemetry], total_vehicles:
 
 def list_zero_data(data, source):
     print("List of zero data:", source.__name__)
-    for var, _ in source._fields_:
+    for var, _ in getattr(source, "_fields_"):
         value = getattr(data, var)
         if not value:
             print(var, value)
@@ -226,7 +224,7 @@ def verify_data(info: lmu_data.SimInfo, player_index):
     list_zero_data(info.LMUData.telemetry.telemInfo[player_index].mWheels[0], lmu_data.LMUWheel)
 
 
-if __name__ == "__main__":
+def main():
     compare_struct_size()
 
     info = lmu_data.SimInfo()
@@ -234,9 +232,13 @@ if __name__ == "__main__":
     # Uncomment to save raw memory data to file
     # info.save("LMU_SHARED_MEMORY_FILE.txt")
 
-    player_index = info.LMUData.telemetry.playerVehicleIdx
-    selected_player_index = player_index
+    local_player_index = info.LMUData.telemetry.playerVehicleIdx
+    selected_player_index = local_player_index
 
-    test_data(info, player_index, selected_player_index)
+    test_data(info, local_player_index, selected_player_index)
 
     verify_data(info, selected_player_index)
+
+
+if __name__ == "__main__":
+    main()
